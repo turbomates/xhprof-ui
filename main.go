@@ -2,56 +2,36 @@ package main
 
 import (
 	"fmt"
-	"net"
-	"log"
-	"encoding/json"
+	"os"
+	"github.com/joho/godotenv"
+	//"gopkg.in/mgo.v2"
+	//"gopkg.in/mgo.v2/bson"
+	"./server"
+	"./error"
+	"./profiler"
 )
 
 const (
 	port string = ":5000"
 )
 
-type Trace struct {
-	ID      string `json:"id"`
-	Data    string `json:"data"`
-	Project string `json:"project"`
-	Action  string `json:"action"`
-}
-
 func main() {
-	ServerAddr,err := net.ResolveUDPAddr("udp", port)
-	checkError(err)
+	err := godotenv.Load()
+	error.CheckError(err)
 
-	ServerConn, err := net.ListenUDP("udp", ServerAddr)
-	checkError(err)
-	defer ServerConn.Close()
+	conn := server.Listen(os.Getenv("PORT"))
 
+	defer conn.Close()
+	fmt.Println(123)
 	buf := make([]byte, 1024)
 
 	for {
-		n, _, err := ServerConn.ReadFromUDP(buf)
-		checkError(err)
+		n, _, err := conn.ReadFromUDP(buf)
+		error.CheckError(err)
+		data := string(buf[0:n]);
 
-		//todo: declare func
-		go func() {
-			data := string(buf[0:n]);
-			fmt.Println("Json: ",data)
-			traces := make(map[string][]Trace)
-
-			err = json.Unmarshal([]byte(data), &traces)
-			checkError(err)
-
-			fmt.Println("Traces: ",traces)
-			/*
-				save to mongo
-			 */
-		}()
-
+		trace := profiler.ParseTrace(data)
+		fmt.Println(trace)
 	}
 }
 
-func checkError(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
